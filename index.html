@@ -1,146 +1,9 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard de Controle - CBS 2027</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS para leitura de planilhas XLSX -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- Chart.js para visualizações -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
-
-  <!-- Header com Banner / Logo Terceirize+ -->
-  <header class="bg-slate-800/95 backdrop-blur border-b border-slate-700 sticky top-0 z-30 px-6 py-3 flex flex-wrap justify-between items-center gap-4">
-    <div class="flex items-center gap-4">
-      <!-- Logotipo Terceirize+ -->
-      <div class="bg-white px-3 py-1 rounded-lg border border-slate-700 shadow-sm flex items-center">
-        <img src="assets/logo-terceirize.png" alt="Terceirize Mais" class="h-8 w-auto object-contain">
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-base font-bold text-white tracking-wide">Controle de Projeto: CBS 2027</h1>
-          <span class="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded font-mono border border-emerald-500/30" id="lbl-active-sheet">Aba: Cronograma base</span>
-          <span class="bg-indigo-500/20 text-indigo-300 text-[10px] px-2 py-0.5 rounded font-mono border border-indigo-500/30">Regra 0/100 (MS Project)</span>
-        </div>
-        <p class="text-xs text-slate-400" id="status-sincronizacao">Carregando dados da planilha...</p>
-      </div>
-    </div>
-
-    <!-- Controles de Atualização -->
-    <div class="flex items-center gap-2 flex-wrap">
-      <button id="btn-sync-sharepoint" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition font-medium shadow">
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Atualizar Dados
-      </button>
-
-      <label class="bg-slate-700 hover:bg-slate-600 cursor-pointer text-slate-200 text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
-        <i data-lucide="file-up" class="w-4 h-4"></i> Carregar .xlsx Local
-        <input type="file" id="file-input" accept=".xlsx, .xls, .csv" class="hidden">
-      </label>
-    </div>
-  </header>
-
-  <main class="max-w-7xl mx-auto p-6 space-y-6">
-
-    <!-- Painel de Filtros e Parâmetros da Linha de Base -->
-    <section class="bg-slate-800 border border-slate-700/80 rounded-xl p-5 shadow-lg">
-      <div class="flex items-center justify-between mb-4 border-b border-slate-700/60 pb-3 flex-wrap gap-2">
-        <div class="flex items-center gap-2">
-          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-emerald-400"></i>
-          <h2 class="text-xs font-semibold tracking-wider uppercase text-slate-300">Linha de Base (Data de Corte) & Filtros</h2>
-        </div>
-        <div class="flex items-center gap-3">
-          <span id="card-filter-indicator" class="hidden text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <span id="card-filter-text">Filtro ativo</span>
-            <button id="btn-clear-card-filter" class="hover:text-white font-bold ml-1">&times;</button>
-          </span>
-          <span class="text-xs text-slate-400">Tarefas no filtro: <strong id="lbl-count-tasks" class="text-emerald-400">0</strong></span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Data de Corte / Status Date (Base para cálculo do Previsto MS Project) -->
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1.5 flex justify-between">
-            <span>Data de Corte (Status Date)</span>
-            <button id="btn-reset-status-date" class="text-[10px] text-indigo-400 hover:underline">Hoje</button>
-          </label>
-          <input type="date" id="input-status-date" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
-          <p class="text-[10px] text-slate-500 mt-1">Define o avanço previsto da Linha de Base (Regra 0/100).</p>
-        </div>
-
-        <!-- Filtro Responsável -->
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1.5">Responsável</label>
-          <select id="filter-responsavel" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
-            <option value="">Todos os Responsáveis</option>
-          </select>
-        </div>
-
-        <!-- Filtro Pacote / Frente -->
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1.5">Pacote do Projeto</label>
-          <select id="filter-frente" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
-            <option value="">Todos os Pacotes</option>
-          </select>
-        </div>
-
-        <!-- Filtro de Intervalo de Datas -->
-        <div>
-          <label class="block text-xs font-medium text-slate-400 mb-1.5 flex justify-between">
-            <span>Janela de Término Previsto</span>
-            <button id="btn-clear-dates" class="text-[10px] text-indigo-400 hover:underline">Limpar</button>
-          </label>
-          <div class="grid grid-cols-2 gap-1.5">
-            <input type="date" id="filter-date-start" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500" title="Data Início">
-            <input type="date" id="filter-date-end" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500" title="Data Fim">
-          </div>
-        </div>
-      </div>
-
-      <!-- Toggles Rápidos -->
-      <div class="flex flex-wrap items-center gap-6 mt-4 pt-3 border-t border-slate-700/50">
-        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
-          <input type="checkbox" id="chk-late-only" class="rounded bg-slate-950 border-slate-700 text-rose-500 focus:ring-0">
-          <span class="flex items-center gap-1 text-rose-400 font-medium">
-            <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i> Apenas Términos Vencidos (Em Atraso)
-          </span>
-        </label>
-        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
-          <input type="checkbox" id="chk-milestones-only" class="rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-0">
-          <span class="flex items-center gap-1 text-amber-400">
-            <i data-lucide="flag" class="w-3.5 h-3.5"></i> Apenas Marcos Críticos
-          </span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Cards de Indicadores do Projeto: PREVISTO vs REALIZADO vs DESVIO -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      
-      <!-- Previsto (Linha de Base Ponderada) -->
-      <div id="card-kpi-planned" class="kpi-card bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow cursor-pointer transition hover:border-blue-500 select-none">
-        <div class="flex justify-between items-start">
-          <div>
-            <p class="text-[11px] font-medium uppercase text-blue-400">Previsto (Linha de Base)</p>
-            <h3 class="text-2xl font-extrabold text-blue-300 mt-1" id="kpi-planned-pct">0.0%</h3>
-          </div>
-          <div class="p-2 bg-blue-500/20 text-blue-400 rounded-lg">
-            <i data-lucide="calendar-check" class="w-5 h-5"></i>
-          </div>
-        </div>
-        <div class="w-full bg-slate-700/60 rounded-full h-1.5 mt-3 overflow-hidden">
           <div id="kpi-planned-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
         </div>
         <p class="text-[11px] text-slate-400 mt-2" id="kpi-planned-sub">0 tarefas planejadas</p>
       </div>
 
-      <!-- Realizado (Avanço Físico Ponderado) -->
+      <!-- Realizado (Avanço Físico Ponderado por Pacote) -->
       <div id="card-kpi-real" class="kpi-card bg-slate-800 border border-slate-700/80 rounded-xl p-4 shadow cursor-pointer transition hover:border-emerald-500 select-none">
         <div class="flex justify-between items-start">
           <div>
@@ -241,14 +104,14 @@
 
     </section>
 
-    <!-- Tabela Detalhada -->
+    <!-- Tabela Detalhada com Status 0 ou 100% -->
     <section class="bg-slate-800 border border-slate-700/80 rounded-xl p-5 shadow">
       <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
         <div>
           <h3 class="text-sm font-semibold tracking-wide uppercase text-slate-300 flex items-center gap-2">
             <i data-lucide="table" class="w-4 h-4 text-emerald-400"></i> Lista de Atividades do Cronograma (Regra 0 ou 100%)
           </h3>
-          <p class="text-[11px] text-slate-400 mt-0.5">Acompanhamento por pacote com peso proporcional da entrega.</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">Acompanhamento por pacote com avanço binário (0% pendente / 100% concluído).</p>
         </div>
 
         <div class="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
@@ -289,14 +152,14 @@
   <script>
     lucide.createIcons();
 
-    const SHAREPOINT_DIRECT_URL = "https://terceirizemais-my.sharepoint.com/:x:/g/personal/michael_albertoni_terceirizemais_com_br/IQCKg1PPwhf1T7rTvJTRLU9BAfZ1h8b8V0royYMVr1ADgU0?download=1";
-    const CORS_PROXY_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHAREPOINT_DIRECT_URL);
-    
-    // Lista de fallback ordenada (busca primeiro o arquivo da base atual)
-    const LOCAL_FALLBACK_FILES = [
-      "./Cronograma_Projeto_CBS_2027.xlsx",
-      "./cronograma.xlsx",
-      "./Cronograma_Projeto_CBS_2027(Cronograma V2).csv"
+    // Link oficial da planilha online no SharePoint (com download=1 para obter o XLSX)
+    const SHAREPOINT_ONLINE_URL = "https://terceirizemais-my.sharepoint.com/:x:/g/personal/michael_albertoni_terceirizemais_com_br/IQCKg1PPwhf1T7rTvJTRLU9BAfZ1h8b8V0royYMVr1ADgU0?download=1";
+
+    // Proxies CORS para o navegador consultar a planilha online diretamente
+    const ONLINE_FETCH_ENDPOINTS = [
+      "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHAREPOINT_ONLINE_URL),
+      "https://corsproxy.io/?" + encodeURIComponent(SHAREPOINT_ONLINE_URL),
+      "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(SHAREPOINT_ONLINE_URL)
     ];
 
     let rawTasks = [];
@@ -355,7 +218,7 @@
     }
 
     function processWorkbook(workbook) {
-      // Localiza prioritariamente a aba "Cronograma base" solicitada
+      // Localiza a aba "Cronograma base" solicitada
       let targetSheetName = workbook.SheetNames.find(n => n.trim().toLowerCase().includes('cronograma base'))
                          || workbook.SheetNames.find(n => n.trim().toLowerCase().includes('base'))
                          || workbook.SheetNames.find(n => n.trim().toLowerCase().includes('cronograma v2'))
@@ -392,7 +255,7 @@
 
       const startIdx = headerIdx !== -1 ? headerIdx + 1 : 5;
 
-      // 1. Extração dos Pesos dos Pacotes na Coluna B (índice 1)
+      // 1. Extração dos Pesos dos Pacotes na Coluna B
       packageWeightsMap = {};
       const parsedTasks = [];
 
@@ -506,23 +369,22 @@
       const filterEnd = dateEndVal ? new Date(dateEndVal + 'T23:59:59') : null;
 
       // 3. Regra 0/100 do MS Project:
-      // Conta o número total de tarefas por pacote
       const tasksPerPackage = {};
       rawTasks.forEach(t => {
         tasksPerPackage[t.pacote] = (tasksPerPackage[t.pacote] || 0) + 1;
       });
 
       rawTasks.forEach(t => {
-        // Regra 0 ou 100: Somente 'Concluído' vale 100% (1), o resto vale 0% (0)
+        // Regra 0 ou 100: Somente 'Concluído' vale 1 (100%), o resto vale 0 (0%)
         const isConcluido = t.status.toLowerCase() === 'concluído';
         t.progressoRealBinario = isConcluido ? 1 : 0;
 
-        // No MS Project, uma tarefa só está "prevista para estar concluída" (100% planejada)
+        // No MS Project, uma tarefa só está "prevista para estar concluída"
         // se o seu Término Previsto <= Data de Corte
         t.previstaAteCorte = t.terminoPrev && t.terminoPrev <= statusDate;
         t.progressoPrevistoBinario = t.previstaAteCorte ? 1 : 0;
 
-        // Atrasos e alertas temporais
+        // Alertas temporais
         t.atrasoTermino = false;
         t.diasAtraso = 0;
         if (!isConcluido && t.terminoPrev && t.terminoPrev < statusDate) {
@@ -535,7 +397,6 @@
           t.atrasoInicio = true;
         }
 
-        // Peso de cada tarefa no projeto = (Peso do Pacote) / (Qtd Tarefas no Pacote)
         const nPkg = tasksPerPackage[t.pacote] || 1;
         t.pesoTarefa = (t.pesoPacote || 10) / nPkg;
       });
@@ -824,28 +685,38 @@
       });
     }
 
-    async function carregarDadosExcel(urls) {
+    // Consulta direta e exclusiva à folha de cálculo online no SharePoint
+    async function carregarPlanilhaOnline() {
       const statusEl = document.getElementById('status-sincronizacao');
-      statusEl.innerText = "Carregando planilha...";
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> A consultar folha de cálculo online no SharePoint...`;
 
-      const urlList = Array.isArray(urls) ? urls : [urls];
       let loaded = false;
 
-      for (const url of urlList) {
+      for (const proxyUrl of ONLINE_FETCH_ENDPOINTS) {
         try {
-          const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now());
+          const res = await fetch(proxyUrl + (proxyUrl.includes('?') ? '&' : '?') + '_t=' + Date.now());
           if (!res.ok) continue;
           const data = await res.arrayBuffer();
+          
+          // Validação: garante que o retorno é um binário XLSX e não erro HTML
+          const preview = new Uint8Array(data.slice(0, 10));
+          const textPreview = String.fromCharCode.apply(null, preview);
+          if (textPreview.includes('<!DOC') || textPreview.includes('<html')) {
+            continue;
+          }
+
           const workbook = XLSX.read(data, { type: 'array' });
           processWorkbook(workbook);
-          statusEl.innerText = `Sincronizado às ${new Date().toLocaleTimeString()}`;
+          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Online • Sincronizado às ${new Date().toLocaleTimeString()} (SharePoint)`;
           loaded = true;
           break;
-        } catch (err) {}
+        } catch (err) {
+          // Tenta o próximo endpoint
+        }
       }
 
       if (!loaded) {
-        statusEl.innerHTML = `<span class="text-amber-400">Aviso: utilize o botão "Carregar .xlsx Local" ou verifique o repositório.</span>`;
+        statusEl.innerHTML = `<span class="text-rose-400">Não foi possível carregar a ligação direta do SharePoint no momento. Clique em "Atualizar Dados Online".</span>`;
       }
     }
 
@@ -908,29 +779,17 @@
       render();
     });
 
-    document.getElementById('btn-sync-sharepoint').addEventListener('click', () => {
-      carregarDadosExcel(LOCAL_FALLBACK_FILES);
+    document.getElementById('btn-sync-online').addEventListener('click', () => {
+      carregarPlanilhaOnline();
     });
 
-    document.getElementById('file-input').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        try {
-          const buffer = evt.target.result;
-          const workbook = XLSX.read(buffer, { type: 'array' });
-          processWorkbook(workbook);
-          document.getElementById('status-sincronizacao').innerText = `Carregado: ${file.name}`;
-        } catch (err) {
-          alert('Erro ao processar arquivo Excel (.xlsx).');
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    });
-
+    // Ao abrir o dashboard, consulta de imediato a folha de cálculo online no SharePoint
     window.addEventListener('DOMContentLoaded', () => {
-      carregarDadosExcel(LOCAL_FALLBACK_FILES);
+      carregarPlanilhaOnline();
+      // Consulta automática contínua em segundo plano a cada 3 minutos (180.000 ms)
+      setInterval(() => {
+        carregarPlanilhaOnline();
+      }, 180000);
     });
   </script>
 </body>
